@@ -1,5 +1,6 @@
 package com.castelli.supermercado.service;
 
+import com.castelli.supermercado.dto.ApiFullRequestDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,7 +43,6 @@ public class WhatsAppClient {
         String phoneNumber = to;
         if (phoneNumber != null && phoneNumber.length() == 13 && phoneNumber.charAt(4) == '9') {
             log.info("Nono dígito encontrado em {}. Removendo...", phoneNumber);
-            // Recria a string: "55XX" (índices 0-3) + "XXXX-XXXX" (índices 5 em diante)
             phoneNumber = phoneNumber.substring(0, 4) + phoneNumber.substring(5);
         }
 
@@ -51,36 +51,28 @@ public class WhatsAppClient {
             jid = jid.trim() + "@c.us";
         }
 
-        String jsonBody = String.format(
-                "{\"session\": \"%s\", \"number\": \"%s\", \"text\": \"%s\", \"isGroup\": false}",
-                this.instanceName,
-                jid,
-                personalizedMessage.replace("\"", "\\\"")
-        );
-
+        ApiFullRequestDTO requestDTO = new ApiFullRequestDTO();
+        requestDTO.setSession(this.instanceName);
+        requestDTO.setNumber(jid);
+        requestDTO.setText(personalizedMessage);
+        requestDTO.setGroup(false);
+    
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("Authorization", "Bearer " + apiToken);
 
-        HttpEntity<String> requestEntity = new HttpEntity<>(jsonBody, headers);
+        HttpEntity<ApiFullRequestDTO> requestEntity = new HttpEntity<>(requestDTO, headers);
 
         try {
-            log.info("Enviando para {} via URL (JSON Manual): {}", jid, fullUrl);
-            log.info("Payload (JSON String): {}", jsonBody);
+        log.info("Enviando para {} via URL: {}", jid, fullUrl);
+        restTemplate.postForEntity(fullUrl, requestEntity, String.class);
 
-            restTemplate.exchange(
-                    fullUrl,
-                    HttpMethod.POST,
-                    requestEntity,
-                    String.class
-            );
-
-            log.info("SUCESSO AO ENVIAR PARA {}!", jid);
-            return true;
+        log.info("SUCESSO AO ENVIAR PARA {}!", jid);
+        return true;
 
         } catch (RestClientException e) {
-            log.error("FALHA AO ENVIAR PARA {}: {}", jid, e.getMessage());
-            return false;
-        }
+        log.error("FALHA AO ENVIAR PARA {}: {}", jid, e.getMessage());
+        return false;
+    }
     }
 }
